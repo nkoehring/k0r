@@ -1,0 +1,71 @@
+@use super::base_html;
+@use super::social_html;
+@()
+
+@:base_html("Welcome!", {
+  <header>
+    <div class="section-wrapper">
+      <strong>k0r — an URL shortener for individuals</strong>
+      @:social_html()
+    </div>
+  </header>
+
+  <main>
+    <header id="hero">
+      <h1>k0r — an URL shortener for individuals</h1>
+      <p>Shorten all the URLs, even if you have millions of them,<br/>and keep control by hosting everything yourself.</p>
+    </header>
+
+    <section name="install" class="install">
+      <div class="section-wrapper">
+        <h2>How to install k0r?</h2>
+        <p><strong>k0r</strong> is available as
+        <a target="_blank" href="https://git.sr.ht/~koehr/k0r/tree" title="project source" rel="noopener">release package</a>
+        or
+        <a target="_blank" href="https://git.sr.ht/~koehr/k0r/tree" title="project source" rel="noopener">source code</a>.
+      </div>
+    </section>
+
+    <section name="usage" class="usage">
+      <div class="section-wrapper">
+        <h2>How to use k0r?</h2>
+
+      </div>
+    </section>
+
+    <section name="why-that-name" class="why-that-name">
+      <div class="section-wrapper">
+        <h2>You wonder why k0r?</h2>
+        <p>Me too! Seriously, there is no further meaning. Feel free to make something up and tell me about it.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="explainer">
+      <strong>k0r</strong> is an open source project written in Rust, distributed under the
+      <a target="_blank" href="https://opensource.org/licenses/MIT" title="MIT License" rel="noopener">MIT License</a>.
+      Its code is
+      <a target="_blank" href="https://sr.ht/~koehr/k0r/" title="project home" rel="noopener">hosted on sourcehut</a>
+      and
+      <a target="_blank" href="https://github.com/nkoehring/k0r" title="github mirror" rel="noopener">mirrored on github</a>.
+      Special thanks goes to the authors and contributors of all the fantastic technologies used for this project:
+      <br />
+      <a target="_blank" href="https://actix.rs/" title="Actix actor framework" rel="noopener">Actix</a>
+      <a target="_blank" href="https://serde.rs/" title="Serde De-/Serialization Framework" rel="noopener">Serde</a>
+      <a target="_blank" href="https://github.com/sfackler/r2d2" title="r2d2 Generic Connection Pool" rel="noopener">r2d2</a>
+      <a target="_blank" href="https://github.com/rusqlite/rusqlite" title="Rusqlite SQlite wrapper" rel="noopener">Rusqlite</a>
+      <a target="_blank" href="https://rust-lang.github.io/futures-rs" title="Futures, async programming for Rust" rel="noopener">Futures-rs</a>
+      and <a target="_blank" href="https://git.sr.ht/~koehr/k0r/tree/main/item/Cargo.toml" title="used crates" rel="noopener">more</a>.
+    </div>
+
+    @:social_html()
+
+    <div class="made-by">
+      <em>© 2021 k0r</em>
+      Made with 💗 for the open source community<br />
+      by <a target="_blank" href="https://koehr.in" title="Homepage of the author" rel="noopener">Norman Köhring</a>.
+    </div>
+  </footer>
+}, {
+})

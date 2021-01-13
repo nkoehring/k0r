@@ -1,24 +1,60 @@
 use std::path::PathBuf;
 use r2d2_sqlite::SqliteConnectionManager;
 use url::Url;
-use actix_web::{self, App, HttpRequest, HttpResponse, HttpServer, Error as AWError};
+use actix_web::{
+    self,
+    web,
+    App,
+    HttpRequest,
+    HttpResponse,
+    HttpServer,
+    Error as AWError,
+    http::header::{ContentType, Expires},
+};
+use std::time::{Duration, SystemTime};
+use super::templates::{self, statics::StaticFile};
+use super::render;
 use super::db;
 
 const CONTENT_TYPE_HTML: &str = "content-type: text/html; charset=utf-8";
 const CONTENT_TYPE_JSON: &str = "content-type: application/json; charset=utf-8";
 
-type DB = actix_web::web::Data<db::Pool>;
-type JSON = actix_web::web::Json<UrlPostData>;
+/// A duration to add to current time for a far expires header.
+static FAR: Duration = Duration::from_secs(180 * 24 * 60 * 60);
 
+type DB = web::Data<db::Pool>;
+type JSON = web::Json<UrlPostData>;
+
+/// Index page handler
 #[actix_web::get("/")]
 async fn index() -> HttpResponse {
-    let body = "<h1>Welcome to k0r.eu</h1><p>This should be some explanatory page one day!</p>";
-
     HttpResponse::Ok()
     .content_type(CONTENT_TYPE_HTML)
-    .body(body)
+    .body(render!(templates::index))
 }
 
+/// Handler for static files.
+/// Create a response from the file data with a correct content type
+/// and a far expires header (or a 404 if the file does not exist).
+#[actix_web::get("/static/{filename}")]
+fn static_file(path: web::Path<String>) -> HttpResponse {
+    let name = &path.0;
+    if let Some(data) = StaticFile::get(name) {
+        let far_expires = SystemTime::now() + FAR;
+        HttpResponse::Ok()
+        .set(Expires(far_expires.into()))
+        .set(ContentType(data.mime.clone()))
+        .body(data.content)
+    } else {
+        HttpResponse::NotFound()
+        .reason("No such static file.")
+        .finish()
+    }
+}
+
+/// Shortcode handler
+/// Asks the database for the URL matching short_code and responds
+/// with a redirect or, if not found, a JSON error
 #[actix_web::get("/{short_code}")]
 async fn redirect(req: HttpRequest, db: DB) -> Result<HttpResponse, AWError> {
     let respond_with_not_found = HttpResponse::NotFound()
@@ -106,9 +142,10 @@ pub async fn start(db_path: PathBuf) -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
         .data(db_pool.clone())
-        .service(index)
-        .service(redirect)
-        .service(add_url)
+        .service(static_file) // GET /static/file.xyz
+        .service(index)       // GET /
+        .service(redirect)    // GET /123
+        .service(add_url)     // POST /
     })
     .bind(("127.0.0.1", 8080))?
     .run()

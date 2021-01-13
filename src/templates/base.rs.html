@@ -1,0 +1,18 @@
+@use super::statics::style_css;
+@use super::statics::favicon_ico;
+@(title: &str, content: Content, meta: Content)
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="shortcut icon" href="/static/@favicon_ico.name" />
+  <link rel="stylesheet" type="text/css" href="/static/@style_css.name"/>
+  <title>@title — k0r link shortener service</title>
+  @:meta()
+</head>
+<body>
+  @:content()
+</body>
+</html>

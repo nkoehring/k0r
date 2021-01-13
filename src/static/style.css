@@ -1,0 +1,109 @@
+body {
+  margin: 0;
+  padding: 0;
+  background: #FFF;
+  color: #345;
+  font: 20px/1.4 sans-serif;
+}
+
+body > header,
+body > footer {
+  background: #000;
+  color: #EEE;
+}
+
+body > header {
+  display: block;
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  padding: 1rem 2rem;
+  box-shadow: 0 1px 4px 0 #0002;
+}
+body > header > .section-wrapper {
+  display: flex;
+  align-items: center;
+  flex-flow: row nowrap;
+  justify-content: space-between;
+}
+
+body > footer {
+  display: flex;
+  align-items: center;
+  flex-flow: column nowrap;
+  justify-content: center;
+  padding: 2rem 1rem;
+  text-align: center;
+  font-size: .8rem;
+}
+body > footer .explainer,
+body > footer .social,
+body > footer .made-by {
+  max-width: 750px;
+  margin: 1rem auto;
+}
+
+body > header .social .icon {
+  width: 32px;
+  height: 32px;
+  margin: 0 .5rem;
+}
+body > header .social .title {
+  display: none;
+}
+
+body > footer .social > a {
+  display: inline-block;
+  margin: 0 1em;
+}
+
+body > footer .social .icon {
+  width: 24px;
+  height: 24px;
+}
+body > footer .social .title {
+  line-height: 24px;
+}
+
+body > main {
+  display: block;
+  margin: 5rem 0;
+}
+
+a {
+  color: #7FBFFF;
+  text-decoration: none;
+}
+
+a:visited {
+  color: #BDF;
+}
+
+#hero {
+  display: block;
+  max-width: 960px;
+  width: 90vw;
+  margin: 9rem auto 5rem;
+  text-align: center;
+}
+#hero > h1 {
+  font-size: 2rem;
+}
+
+section {
+  display: block;
+  padding: 2rem;
+}
+section:nth-child(even) {
+  background: #F5F5FF;
+}
+.section-wrapper {
+  width: 100%;
+  max-width: 960px;
+  margin: auto;
+}
+
+@media (prefers-color-scheme: darkish) {
+  body { background:  #223; color: white; }
+}

@@ -1,7 +1,7 @@
 k0r.eu
 ======
 
-A short URL service, tailored for private use but over-optimized anyways.
+A URL shortener for individuals, but optimized for speed.
 
 Quick Start
 -----------

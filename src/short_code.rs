@@ -1,4 +1,5 @@
 use radix_fmt::radix_36;
+use std::num::ParseIntError;
 
 pub struct ShortCode {
     pub code: String,
@@ -11,9 +12,10 @@ impl ShortCode {
         ShortCode { code, n }
     }
 
-    pub fn from_code(code: &str) -> ShortCode {
-        let n = usize::from_str_radix(code, 36).unwrap().to_owned();
+    pub fn from_code(code: &str) -> Result<ShortCode, ParseIntError> {
+        println!("translating code {:?} to id", code);
+        let n = usize::from_str_radix(code, 36)?;
         let code = code.to_owned();
-        ShortCode { code, n }
+        Ok(ShortCode { code, n })
     }
 }

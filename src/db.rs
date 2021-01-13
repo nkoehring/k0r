@@ -14,7 +14,7 @@ pub enum Queries {
 }
 
 fn get_url(conn: Connection, short_code: &str) -> Result<String, Error> {
-    let row_id = ShortCode::from_code(short_code).n;
+    let row_id = ShortCode::from_code(short_code)?.n;
     conn.query_row(
         "SELECT URL FROM URLs WHERE ID = ?",
         &[row_id as i64],
