@@ -14,4 +14,4 @@ tasks:
   - setup: |
       cd k0r
   - build: |
-      cargo install --release
+      cargo build --release
