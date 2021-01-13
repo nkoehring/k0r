@@ -1,0 +1,17 @@
+image: alpine/edge
+packages:
+  - rust
+  - cargo
+sources:
+  - https://git.sr.ht/~koehr/k0r
+artifacts:
+  - k0r/target/release/k0r
+  - k0r/db/schema.sql
+  - k0r/db/test_data.sql
+  - k0r/LICENSE
+  - k0r/README.md
+tasks:
+  - setup: |
+      cd k0r
+  - build: |
+      cargo install --release

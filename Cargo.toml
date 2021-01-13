@@ -1,5 +1,5 @@
 [package]
-name = "k0r-url-shortener"
+name = "k0r"
 version = "0.1.0"
 authors = ["koehr <n@koehr.in>"]
 edition = "2018"
