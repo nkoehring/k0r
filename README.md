@@ -1,5 +1,7 @@
-k0r.eu
-======
+# k0r.eu
+
+[![builds.sr.ht status](https://builds.sr.ht/~koehr/k0r/.svg)](https://builds.sr.ht/~koehr/k0r/?)
+[![MIT license](https://img.shields.io/badge/license-MIT-blueviolet.svg)](https://opensource.org/licenses/MIT)
 
 A URL shortener for individuals, but optimized for speed.
 
