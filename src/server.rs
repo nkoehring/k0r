@@ -4,11 +4,9 @@ use url::Url;
 use actix_web::{
     self,
     web,
-    App,
     HttpRequest,
     HttpResponse,
-    HttpServer,
-    Error as AWError,
+    Error,
     http::header::{ContentType, Expires},
 };
 use std::time::{Duration, SystemTime};
@@ -20,10 +18,17 @@ const CONTENT_TYPE_HTML: &str = "content-type: text/html; charset=utf-8";
 const CONTENT_TYPE_JSON: &str = "content-type: application/json; charset=utf-8";
 
 /// A duration to add to current time for a far expires header.
-static FAR: Duration = Duration::from_secs(180 * 24 * 60 * 60);
+const  FAR: Duration = Duration::from_secs(180 * 24 * 60 * 60);
+
+/// Common, unsoliticed queries by browsers that should be ignored
+const IGNORED_SHORT_CODES: &[&str] = &["favicon.ico"]; // TODO: make db::store_url aware of this
 
 type DB = web::Data<db::Pool>;
 type JSON = web::Json<UrlPostData>;
+
+fn get_request_origin(req: &HttpRequest) -> String {
+    req.connection_info().remote_addr().unwrap_or("unkown origin").to_string()
+}
 
 /// Index page handler
 #[actix_web::get("/")]
@@ -56,31 +61,24 @@ fn static_file(path: web::Path<String>) -> HttpResponse {
 /// Asks the database for the URL matching short_code and responds
 /// with a redirect or, if not found, a JSON error
 #[actix_web::get("/{short_code}")]
-async fn redirect(req: HttpRequest, db: DB) -> Result<HttpResponse, AWError> {
+async fn redirect(req: HttpRequest, db: DB) -> Result<HttpResponse, Error> {
     let respond_with_not_found = HttpResponse::NotFound()
         .content_type(CONTENT_TYPE_JSON)
         .body("{{\"status\": \"error\", \"message\": \"URL not found\"}}");
 
     let short_code = req.match_info().get("short_code").unwrap_or("0");
 
-    #[cfg(feature = "debug-output")]
-    let debug_info = format!(
-        "{} queried \"{}\", got ",
-        req.connection_info().remote_addr().unwrap_or("unkown origin"),
-        short_code
-    );
+    if IGNORED_SHORT_CODES.contains(&short_code) {
+        debug!("{} queried {}: IGNORED", get_request_origin(&req), short_code);
+        Ok(respond_with_not_found)
 
-    if let Ok(url) = db::query(&db, db::Queries::GetURL(short_code.to_owned())).await {
+    } else if let Ok(url) = db::query(&db, db::Queries::GetURL(short_code.to_owned())).await {
         let body = format!("Would redirect to <a href=\"{}\">{}</a>.", url, url);
-
-        #[cfg(feature = "debug-output")]
-        println!("{}{}", debug_info, url);
-
+        debug!("{} queried {}, got {}", get_request_origin(&req), short_code, url);
         Ok(HttpResponse::Ok().content_type(CONTENT_TYPE_HTML).body(body))
-    } else {
-        #[cfg(feature = "debug-output")]
-        println!("{}Not Found", debug_info);
 
+    } else {
+        debug!("{} queried {}, got Not Found", get_request_origin(&req), short_code);
         Ok(respond_with_not_found)
     }
 }
@@ -91,39 +89,25 @@ struct UrlPostData {
 }
 
 #[actix_web::post("/")]
-async fn add_url(_req: HttpRequest, data: JSON, db: DB) -> Result<HttpResponse, AWError> {
+async fn add_url(_req: HttpRequest, data: JSON, db: DB) -> Result<HttpResponse, Error> {
     let respond_with_bad_request = HttpResponse::BadRequest()
         .content_type("content-type: application/json; charset=utf-8")
         .body("{{\"status\": \"error\", \"message\": \"invalid URL\"}}");
 
-    #[cfg(feature = "debug-output")]
-    let debug_info = format!(
-        "{} posted \"{}\", got ",
-        _req.connection_info().remote_addr().unwrap_or("unkown origin"),
-        &data.url
-    );
-
     match Url::parse(&data.url) {
         Ok(parsed_url) => {
             if !parsed_url.has_authority() {
-                #[cfg(feature = "debug-output")]
-                println!("{}Invalid, no authority.", debug_info);
-
+                debug!("{} posted \"{}\", got Invalid, no authority.", get_request_origin(&_req), &data.url);
                 return Ok(respond_with_bad_request);
             }
             let code = db::query(&db, db::Queries::StoreNewURL(data.url.clone())).await?;
-
-            #[cfg(feature = "debug-output")]
-            println!("{}{}.", debug_info, code);
-
+            debug!("{} posted \"{}\", got {}", get_request_origin(&_req), &data.url, code);
             Ok(HttpResponse::Created()
                 .content_type("content-type: application/json; charset=utf-8")
                 .body(format!("{{\"status\": \"ok\", \"message\": \"{}\"}}", code)))
         },
         Err(_) => {
-            #[cfg(feature = "debug-output")]
-            println!("{}Invalid, Parser Error.", debug_info);
-
+            debug!("{} posted \"{}\", got Invalid, Parser Error.", get_request_origin(&_req), &data.url);
             Ok(respond_with_bad_request)
         },
     }
@@ -131,16 +115,15 @@ async fn add_url(_req: HttpRequest, data: JSON, db: DB) -> Result<HttpResponse, 
 
 #[actix_web::main]
 pub async fn start(db_path: PathBuf) -> std::io::Result<()> {
-    #[cfg(feature = "debug-output")]
-    println!("Using database {:?}", db_path.canonicalize().unwrap());
+    debug!("Canonical database path is {:?}", db_path.canonicalize());
 
     let db_manager = SqliteConnectionManager::file(db_path);
     let db_pool = db::Pool::new(db_manager).unwrap();
 
     println!("Server is listening on 127.0.0.1:8080");
 
-    HttpServer::new(move || {
-        App::new()
+    actix_web::HttpServer::new(move || {
+        actix_web::App::new()
         .data(db_pool.clone())
         .service(static_file) // GET /static/file.xyz
         .service(index)       // GET /

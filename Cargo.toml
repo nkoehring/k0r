@@ -7,7 +7,7 @@ license = "MIT"
 description= "Very performant URL shortener service for individuals."
 readme = "README.md"
 categories = ["command-line-utilities"]
-keywords = ["static", "website", "weblog", "blog", "markdown", "ssr", "web"]
+keywords = ["web-service", "web-application", "url-shortener", "self-hosted"]
 repository = "https://git.sr.ht/~koehr/k0r"
 homepage = "https://sr.ht/~koehr/k0r/"
 
@@ -24,12 +24,11 @@ r2d2 = "0.8"
 r2d2_sqlite = "0.17"
 rusqlite = "0.24"
 futures = "0.3"
+log = { version = "0.4", features = ["max_level_debug", "release_max_level_info"] }
+pretty_env_logger = "0.4"
 failure = "0.1.8"
 exitcode = "1.1.2"
 human-panic = "1.0.3"
-
-[features]
-debug-output = []
 
 [build-dependencies]
 ructe = { version = "0.13", features = ["mime03"] }

@@ -13,7 +13,6 @@ impl ShortCode {
     }
 
     pub fn from_code(code: &str) -> Result<ShortCode, ParseIntError> {
-        println!("translating code {:?} to id", code);
         let n = usize::from_str_radix(code, 36)?;
         let code = code.to_owned();
         Ok(ShortCode { code, n })

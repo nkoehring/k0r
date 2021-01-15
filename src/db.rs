@@ -25,6 +25,8 @@ fn get_url(conn: Connection, short_code: &str) -> Result<String, Error> {
 
 fn store_url(conn: Connection, url: &str) -> Result<String, Error> {
     let _ = conn.execute("INSERT INTO URLs VALUES(NULL, ?, 0, 0)", &[url])?;
+    // TODO: In case a plain [0-9a-z] string will be included into
+    // IGNORED_SHORT_CODES, this function should work around such IDs as well.
     let short_code = ShortCode::new(conn.last_insert_rowid() as usize).code;
     Ok(short_code)
 }

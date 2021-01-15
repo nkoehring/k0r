@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate log;
+extern crate pretty_env_logger;
 use human_panic::setup_panic;
 use std::path::PathBuf;
 
@@ -10,6 +13,7 @@ mod short_code;
 include!(concat!(env!("OUT_DIR"), "/templates.rs"));
 
 fn main() {
+    pretty_env_logger::init();
     setup_panic!();
 
     let arg = std::env::args()
@@ -21,18 +25,20 @@ fn main() {
         println!("k0r [/path/to/k0r.db]\tDatabase name defaults to ./k0r.db");
         std::process::exit(exitcode::USAGE);
     } else {
-        let mut path = PathBuf::from(arg);
+        let mut path = PathBuf::from(&arg);
 
         // append k0r.db as filename if path is a directory
         if path.is_dir() {
             path.push("k0r.db");
+            debug!("Expanded given argument \"{}\" to {:?}", &arg, path);
         }
 
         if !path.is_file() {
-            println!("DB path not found and cannot be created: {:?}", path);
+            error!("DB path not found and cannot be created: {:?}", path);
             std::process::exit(exitcode::CANTCREAT);
         }
 
+        debug!("Starting server...");
         let _ = server::start(path);
     }
 }
