@@ -86,29 +86,41 @@ async fn redirect(req: HttpRequest, db: DB) -> Result<HttpResponse, Error> {
 #[derive(serde::Deserialize)]
 struct UrlPostData {
     url: String,
+    key: String,
+}
+
+fn build_400(msg: &str) -> HttpResponse {
+    let body = format!("{{\"status\": \"error\", \"message\": \"{}\"}}", msg);
+
+    HttpResponse::BadRequest()
+        .content_type(CONTENT_TYPE_JSON)
+        .body(body)
 }
 
 #[actix_web::post("/")]
 async fn add_url(_req: HttpRequest, data: JSON, db: DB) -> Result<HttpResponse, Error> {
-    let respond_with_bad_request = HttpResponse::BadRequest()
-        .content_type("content-type: application/json; charset=utf-8")
-        .body("{{\"status\": \"error\", \"message\": \"invalid URL\"}}");
-
     match Url::parse(&data.url) {
         Ok(parsed_url) => {
             if !parsed_url.has_authority() {
                 debug!("{} posted \"{}\", got Invalid, no authority.", get_request_origin(&_req), &data.url);
-                return Ok(respond_with_bad_request);
+                return Ok(build_400("Invalid URL, cannot be path only or data URL"));
             }
-            let code = db::query(&db, db::Queries::StoreNewURL(data.url.clone())).await?;
-            debug!("{} posted \"{}\", got {}", get_request_origin(&_req), &data.url, code);
-            Ok(HttpResponse::Created()
-                .content_type("content-type: application/json; charset=utf-8")
-                .body(format!("{{\"status\": \"ok\", \"message\": \"{}\"}}", code)))
+            match db::query(&db, db::Queries::StoreNewURL(data.key.clone(), data.url.clone())).await {
+                Ok(code) => {
+                    debug!("{} posted \"{}\" with key \"{}\", got {}", get_request_origin(&_req), &data.url, &data.key, code);
+                    Ok(HttpResponse::Created()
+                        .content_type(CONTENT_TYPE_JSON)
+                        .body(format!("{{\"status\": \"ok\", \"message\": \"{}\"}}", code)))
+                }
+                Err(err) => {
+                    debug!("{} posted \"{}\" with key \"{}\", got {}", get_request_origin(&_req), &data.url, &data.key, err);
+                    Ok(build_400("Invalid API key"))
+                }
+            }
         },
         Err(_) => {
             debug!("{} posted \"{}\", got Invalid, Parser Error.", get_request_origin(&_req), &data.url);
-            Ok(respond_with_bad_request)
+            Ok(build_400("Invalid URL"))
         },
     }
 }

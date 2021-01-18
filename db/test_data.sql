@@ -1,7 +1,7 @@
 # This adds two users. The second is rate limited to 1 url insert per second.
 # ID, API_KEY, RATE_LIMIT
-INSERT INTO Users VALUES(NULL, '0d1c9a1a-b4b1-4c09-ba69-290564a39de3', NULL);
-INSERT INTO Users VALUES(NULL, '0ee61056-cd50-48e5-b1ab-4ff3183d3af5', 1);
+INSERT INTO Users VALUES(NULL, '0d1c9a1a-b4b1-4c09-ba69-290564a39de3', 0, 1);
+INSERT INTO Users VALUES(NULL, '0ee61056-cd50-48e5-b1ab-4ff3183d3af5', 1, 0);
 
 # Some test URLs
 # ID, URL, VISITS, USERID
