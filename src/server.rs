@@ -30,6 +30,20 @@ fn get_request_origin(req: &HttpRequest) -> String {
     req.connection_info().remote_addr().unwrap_or("unkown origin").to_string()
 }
 
+fn build_400_json(msg: &str) -> HttpResponse {
+    let body = format!("{{\"status\": \"error\", \"message\": \"{}\"}}", msg);
+
+    HttpResponse::BadRequest()
+        .content_type(CONTENT_TYPE_JSON)
+        .body(body)
+}
+
+fn build_404_json() -> HttpResponse {
+    HttpResponse::BadRequest()
+        .content_type(CONTENT_TYPE_JSON)
+        .body("{{\"status\": \"error\", \"message\": \"Not Found\"}}")
+}
+
 /// Index page handler
 #[actix_web::get("/")]
 async fn index() -> HttpResponse {
@@ -62,15 +76,11 @@ fn static_file(path: web::Path<String>) -> HttpResponse {
 /// with a redirect or, if not found, a JSON error
 #[actix_web::get("/{short_code}")]
 async fn redirect(req: HttpRequest, db: DB) -> Result<HttpResponse, Error> {
-    let respond_with_not_found = HttpResponse::NotFound()
-        .content_type(CONTENT_TYPE_JSON)
-        .body("{{\"status\": \"error\", \"message\": \"URL not found\"}}");
-
     let short_code = req.match_info().get("short_code").unwrap_or("0");
 
     if IGNORED_SHORT_CODES.contains(&short_code) {
         debug!("{} queried {}: IGNORED", get_request_origin(&req), short_code);
-        Ok(respond_with_not_found)
+        Ok(build_404_json())
 
     } else if let Ok(url) = db::query(&db, db::Queries::GetURL(short_code.to_owned())).await {
         let body = format!("Would redirect to <a href=\"{}\">{}</a>.", url, url);
@@ -79,22 +89,15 @@ async fn redirect(req: HttpRequest, db: DB) -> Result<HttpResponse, Error> {
 
     } else {
         debug!("{} queried {}, got Not Found", get_request_origin(&req), short_code);
-        Ok(respond_with_not_found)
+        Ok(build_404_json())
     }
 }
+
 
 #[derive(serde::Deserialize)]
 struct UrlPostData {
     url: String,
     key: String,
-}
-
-fn build_400(msg: &str) -> HttpResponse {
-    let body = format!("{{\"status\": \"error\", \"message\": \"{}\"}}", msg);
-
-    HttpResponse::BadRequest()
-        .content_type(CONTENT_TYPE_JSON)
-        .body(body)
 }
 
 #[actix_web::post("/")]
@@ -103,34 +106,39 @@ async fn add_url(_req: HttpRequest, data: JSON, db: DB) -> Result<HttpResponse, 
         Ok(parsed_url) => {
             if !parsed_url.has_authority() {
                 debug!("{} posted \"{}\", got Invalid, no authority.", get_request_origin(&_req), &data.url);
-                return Ok(build_400("Invalid URL, cannot be path only or data URL"));
+                return Ok(build_400_json("Invalid URL, cannot be path only or data URL"));
             }
-            match db::query(&db, db::Queries::StoreNewURL(data.key.clone(), data.url.clone())).await {
-                Ok(code) => {
-                    debug!("{} posted \"{}\" with key \"{}\", got {}", get_request_origin(&_req), &data.url, &data.key, code);
-                    Ok(HttpResponse::Created()
-                        .content_type(CONTENT_TYPE_JSON)
-                        .body(format!("{{\"status\": \"ok\", \"message\": \"{}\"}}", code)))
-                }
-                Err(err) => {
-                    debug!("{} posted \"{}\" with key \"{}\", got {}", get_request_origin(&_req), &data.url, &data.key, err);
-                    Ok(build_400("Invalid API key"))
-                }
+
+            let query_result = db::query(
+                &db,
+                db::Queries::StoreNewURL(data.key.clone(), data.url.clone())
+            ).await;
+
+            debug!("{} posted \"{}\" with key \"{}\", got {:?}", get_request_origin(&_req), &data.url, &data.key, query_result);
+
+            match query_result {
+                Ok(code) => Ok(HttpResponse::Created()
+                    .content_type(CONTENT_TYPE_JSON)
+                    .body(format!("{{\"status\": \"ok\", \"message\": \"{}\"}}", code))),
+                Err(_) => Ok(build_400_json("Invalid API key"))
             }
         },
         Err(_) => {
             debug!("{} posted \"{}\", got Invalid, Parser Error.", get_request_origin(&_req), &data.url);
-            Ok(build_400("Invalid URL"))
+            Ok(build_400_json("Invalid URL"))
         },
     }
 }
 
 #[actix_web::main]
 pub async fn start(db_path: PathBuf) -> std::io::Result<()> {
-    debug!("Canonical database path is {:?}", db_path.canonicalize());
-
     let db_manager = SqliteConnectionManager::file(db_path);
     let db_pool = db::Pool::new(db_manager).unwrap();
+
+    if (db::query(&db_pool, db::Queries::NeedsInit).await).is_err() {
+        let _ = db::query(&db_pool, db::Queries::InitDB).await;
+        let _ = db::query(&db_pool, db::Queries::CreateUser(0, true)).await;
+    }
 
     println!("Server is listening on 127.0.0.1:8080");
 

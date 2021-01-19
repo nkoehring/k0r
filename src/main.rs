@@ -3,6 +3,7 @@ extern crate log;
 extern crate pretty_env_logger;
 use human_panic::setup_panic;
 use std::path::PathBuf;
+use text_io::read;
 
 mod actix_ructe;
 mod db;
@@ -34,8 +35,15 @@ fn main() {
         }
 
         if !path.is_file() {
-            error!("DB path not found and cannot be created: {:?}", path);
-            std::process::exit(exitcode::CANTCREAT);
+            println!(
+                "Database file {} not found. Create it? [y/N]",
+                path.to_str().unwrap()
+            );
+            let input: String = read!("{}\n");
+            if input != "y" && input != "Y" {
+                error!("DB path not found and cannot be created: {:?}", path);
+                std::process::exit(exitcode::CANTCREAT);
+            }
         }
 
         debug!("Starting server...");
