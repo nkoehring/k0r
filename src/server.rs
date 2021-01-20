@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-use r2d2_sqlite::SqliteConnectionManager;
 use url::Url;
 use actix_web::{
     self,
@@ -131,15 +129,7 @@ async fn add_url(_req: HttpRequest, data: JSON, db: DB) -> Result<HttpResponse, 
 }
 
 #[actix_web::main]
-pub async fn start(db_path: PathBuf) -> std::io::Result<()> {
-    let db_manager = SqliteConnectionManager::file(db_path);
-    let db_pool = db::Pool::new(db_manager).unwrap();
-
-    if (db::query(&db_pool, db::Queries::NeedsInit).await).is_err() {
-        let _ = db::query(&db_pool, db::Queries::InitDB).await;
-        let _ = db::query(&db_pool, db::Queries::CreateUser(0, true)).await;
-    }
-
+pub async fn start(db_pool: db::Pool) -> std::io::Result<()> {
     println!("Server is listening on 127.0.0.1:8080");
 
     actix_web::HttpServer::new(move || {
