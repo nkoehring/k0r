@@ -6,6 +6,7 @@ use actix_web::{
     HttpResponse,
     Error,
     http::header::{ContentType, Expires},
+    middleware::Logger,
 };
 use std::time::{Duration, SystemTime};
 use super::templates::{self, statics::StaticFile};
@@ -134,6 +135,7 @@ pub async fn start(db_pool: db::Pool) -> std::io::Result<()> {
 
     actix_web::HttpServer::new(move || {
         actix_web::App::new()
+        .wrap(Logger::default())
         .data(db_pool.clone())
         .service(static_file) // GET /static/file.xyz
         .service(index)       // GET /

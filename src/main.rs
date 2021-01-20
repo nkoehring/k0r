@@ -45,7 +45,15 @@ async fn init_db_pool(path_str: String) -> db::Pool {
     let db_path = build_db_path(&path_str);
 
     debug!("Initializing database...");
-    let db_manager = SqliteConnectionManager::file(db_path);
+    let db_manager = SqliteConnectionManager::file(db_path)
+        .with_init(|c| c.execute_batch(
+            "
+            PRAGMA journal_mode = WAL;
+            PRAGMA synchronous = normal;
+            PRAGMA temp_store = memory;
+            PRAGMA mmap_size = 314572800;
+            "
+        ));
     let db_pool = db::Pool::new(db_manager).unwrap();
 
     if (db::query(&db_pool, db::Queries::NeedsInit).await).is_err() {

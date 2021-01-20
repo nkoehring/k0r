@@ -3,7 +3,7 @@
 [![builds.sr.ht status](https://builds.sr.ht/~koehr/k0r/.svg)](https://builds.sr.ht/~koehr/k0r/?)
 [![MIT license](https://img.shields.io/badge/license-MIT-blueviolet.svg)](https://opensource.org/licenses/MIT)
 
-A URL shortener for individuals, but optimized for speed.
+A URL shortener for individuals, but optimized for speed. GET requests to an URL typically takes less than 100µs.
 
 Quick Start
 -----------
