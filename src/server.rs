@@ -11,7 +11,7 @@ use actix_web::{
 use std::time::{Duration, SystemTime};
 use super::templates::{self, statics::StaticFile};
 use super::render;
-use super::db;
+use super::db::{self, DBValue};
 
 const CONTENT_TYPE_HTML: &str = "content-type: text/html; charset=utf-8";
 const CONTENT_TYPE_JSON: &str = "content-type: application/json; charset=utf-8";
@@ -23,7 +23,7 @@ const  FAR: Duration = Duration::from_secs(180 * 24 * 60 * 60);
 const IGNORED_SHORT_CODES: &[&str] = &["favicon.ico"]; // TODO: make db::store_url aware of this
 
 type DB = web::Data<db::Pool>;
-type JSON = web::Json<UrlPostData>;
+type JSON = web::Json<db::UrlPostData>;
 
 fn get_request_origin(req: &HttpRequest) -> String {
     req.connection_info().remote_addr().unwrap_or("unkown origin").to_string()
@@ -41,6 +41,12 @@ fn build_404_json() -> HttpResponse {
     HttpResponse::BadRequest()
         .content_type(CONTENT_TYPE_JSON)
         .body("{{\"status\": \"error\", \"message\": \"Not Found\"}}")
+}
+
+fn build_500_json() -> HttpResponse {
+    HttpResponse::InternalServerError()
+        .content_type(CONTENT_TYPE_JSON)
+        .body("{{\"status\": \"error\", \"message\": \"Internal Server Error\"}}")
 }
 
 /// Index page handler
@@ -81,7 +87,7 @@ async fn redirect(req: HttpRequest, db: DB) -> Result<HttpResponse, Error> {
         debug!("{} queried {}: IGNORED", get_request_origin(&req), short_code);
         Ok(build_404_json())
 
-    } else if let Ok(url) = db::query(&db, db::Queries::GetURL(short_code.to_owned())).await {
+    } else if let Ok(DBValue::String(url)) = db::query(&db, db::Queries::GetURL(short_code.to_owned())).await {
         let body = format!("Would redirect to <a href=\"{}\">{}</a>.", url, url);
         debug!("{} queried {}, got {}", get_request_origin(&req), short_code, url);
         Ok(HttpResponse::Ok().content_type(CONTENT_TYPE_HTML).body(body))
@@ -92,12 +98,6 @@ async fn redirect(req: HttpRequest, db: DB) -> Result<HttpResponse, Error> {
     }
 }
 
-
-#[derive(serde::Deserialize)]
-struct UrlPostData {
-    url: String,
-    key: String,
-}
 
 #[actix_web::post("/")]
 async fn add_url(_req: HttpRequest, data: JSON, db: DB) -> Result<HttpResponse, Error> {
@@ -110,16 +110,18 @@ async fn add_url(_req: HttpRequest, data: JSON, db: DB) -> Result<HttpResponse, 
 
             let query_result = db::query(
                 &db,
-                db::Queries::StoreNewURL(data.key.clone(), data.url.clone())
+                db::Queries::StoreNewURL(data.into_inner())
             ).await;
 
-            debug!("{} posted \"{}\" with key \"{}\", got {:?}", get_request_origin(&_req), &data.url, &data.key, query_result);
-
             match query_result {
-                Ok(code) => Ok(HttpResponse::Created()
+                Ok(DBValue::String(code)) => Ok(HttpResponse::Created()
                     .content_type(CONTENT_TYPE_JSON)
                     .body(format!("{{\"status\": \"ok\", \"message\": \"{}\"}}", code))),
-                Err(_) => Ok(build_400_json("Invalid API key"))
+                Err(err) => Ok(build_400_json(&format!("Invalid API key: {:?}", err))),
+                _ => {
+                    debug!("Got unexpected type back from StoreNewURL query: {:#?}", query_result);
+                    Ok(build_500_json())
+                }
             }
         },
         Err(_) => {
