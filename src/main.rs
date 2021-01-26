@@ -1,11 +1,11 @@
 #[macro_use]
 extern crate log;
 extern crate pretty_env_logger;
-use r2d2_sqlite::SqliteConnectionManager;
+use futures::executor::block_on;
 use human_panic::setup_panic;
+use r2d2_sqlite::SqliteConnectionManager;
 use std::path::PathBuf;
 use text_io::read;
-use futures::executor::block_on;
 
 mod actix_ructe;
 mod db;
@@ -47,15 +47,16 @@ async fn init_db_pool(path_str: String) -> db::Pool {
     let db_path = build_db_path(&path_str);
 
     debug!("Initializing database...");
-    let db_manager = SqliteConnectionManager::file(db_path)
-        .with_init(|c| c.execute_batch(
+    let db_manager = SqliteConnectionManager::file(db_path).with_init(|c| {
+        c.execute_batch(
             "
             PRAGMA journal_mode = WAL;
             PRAGMA synchronous = normal;
             PRAGMA temp_store = memory;
             PRAGMA mmap_size = 314572800;
-            "
-        ));
+            ",
+        )
+    });
     let db_pool = db::Pool::new(db_manager).unwrap();
 
     if (db::query(&db_pool, db::Queries::NeedsInit).await).is_err() {
@@ -69,8 +70,8 @@ async fn init_db_pool(path_str: String) -> db::Pool {
             if let Some(err) = (db::query(&db_pool, db::Queries::CreateUser(0, true)).await).err() {
                 panic!("Failed to create super user! {}", err);
             }
-        },
-        Ok(DBValue::Number(_)) => { /* nothing to do */ },
+        }
+        Ok(DBValue::Number(_)) => { /* nothing to do */ }
         Ok(v) => debug!("Got unexpected value when counting users: {:#?}", v),
         Err(err) => panic!("Failed to create super user! {}", err),
     }

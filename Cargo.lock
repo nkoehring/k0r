@@ -1504,7 +1504,6 @@ dependencies = [
  "libsqlite3-sys",
  "memchr",
  "smallvec",
- "uuid",
 ]
 
 [[package]]

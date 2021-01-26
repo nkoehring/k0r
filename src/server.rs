@@ -1,23 +1,20 @@
-use url::Url;
+use super::db::{self, DBValue};
+use super::render;
+use super::templates::{self, statics::StaticFile};
 use actix_web::{
     self,
-    web,
-    HttpRequest,
-    HttpResponse,
-    Error,
-    http::header::{ContentType, Expires},
+    http::header::{ContentType, Expires, LOCATION},
     middleware::Logger,
+    web, Error, HttpRequest, HttpResponse,
 };
 use std::time::{Duration, SystemTime};
-use super::templates::{self, statics::StaticFile};
-use super::render;
-use super::db::{self, DBValue};
+use url::Url;
 
-const CONTENT_TYPE_HTML: &str = "content-type: text/html; charset=utf-8";
-const CONTENT_TYPE_JSON: &str = "content-type: application/json; charset=utf-8";
+const CONTENT_TYPE_HTML: &str = "text/html; charset=utf-8";
+const CONTENT_TYPE_JSON: &str = "application/json; charset=utf-8";
 
 /// A duration to add to current time for a far expires header.
-const  FAR: Duration = Duration::from_secs(180 * 24 * 60 * 60);
+const FAR: Duration = Duration::from_secs(180 * 24 * 60 * 60);
 
 /// Common, unsoliticed queries by browsers that should be ignored
 const IGNORED_SHORT_CODES: &[&str] = &["favicon.ico"]; // TODO: make db::store_url aware of this
@@ -26,7 +23,10 @@ type DB = web::Data<db::Pool>;
 type JSON = web::Json<db::UrlPostData>;
 
 fn get_request_origin(req: &HttpRequest) -> String {
-    req.connection_info().remote_addr().unwrap_or("unkown origin").to_string()
+    req.connection_info()
+        .remote_addr()
+        .unwrap_or("unkown origin")
+        .to_string()
 }
 
 fn build_400_json(msg: &str) -> HttpResponse {
@@ -53,8 +53,8 @@ fn build_500_json() -> HttpResponse {
 #[actix_web::get("/")]
 async fn index() -> HttpResponse {
     HttpResponse::Ok()
-    .content_type(CONTENT_TYPE_HTML)
-    .body(render!(templates::index))
+        .content_type(CONTENT_TYPE_HTML)
+        .body(render!(templates::index))
 }
 
 /// Handler for static files.
@@ -66,13 +66,13 @@ fn static_file(path: web::Path<String>) -> HttpResponse {
     if let Some(data) = StaticFile::get(name) {
         let far_expires = SystemTime::now() + FAR;
         HttpResponse::Ok()
-        .set(Expires(far_expires.into()))
-        .set(ContentType(data.mime.clone()))
-        .body(data.content)
+            .set(Expires(far_expires.into()))
+            .set(ContentType(data.mime.clone()))
+            .body(data.content)
     } else {
         HttpResponse::NotFound()
-        .reason("No such static file.")
-        .finish()
+            .reason("No such static file.")
+            .finish()
     }
 }
 
@@ -84,34 +84,51 @@ async fn redirect(req: HttpRequest, db: DB) -> Result<HttpResponse, Error> {
     let short_code = req.match_info().get("short_code").unwrap_or("0");
 
     if IGNORED_SHORT_CODES.contains(&short_code) {
-        debug!("{} queried {}: IGNORED", get_request_origin(&req), short_code);
+        debug!(
+            "{} queried {}: IGNORED",
+            get_request_origin(&req),
+            short_code
+        );
         Ok(build_404_json())
-
-    } else if let Ok(DBValue::String(url)) = db::query(&db, db::Queries::GetURL(short_code.to_owned())).await {
-        let body = format!("Would redirect to <a href=\"{}\">{}</a>.", url, url);
-        debug!("{} queried {}, got {}", get_request_origin(&req), short_code, url);
-        Ok(HttpResponse::Ok().content_type(CONTENT_TYPE_HTML).body(body))
-
+    } else if let Ok(DBValue::String(url)) =
+        db::query(&db, db::Queries::GetURL(short_code.to_owned())).await
+    {
+        debug!(
+            "{} queried {}, got {}",
+            get_request_origin(&req),
+            &short_code,
+            &url
+        );
+        Ok(HttpResponse::MovedPermanently()
+            .header(LOCATION, url.clone())
+            .content_type(CONTENT_TYPE_HTML)
+            .body(render!(templates::redirect, "redirect", &url)))
     } else {
-        debug!("{} queried {}, got Not Found", get_request_origin(&req), short_code);
+        debug!(
+            "{} queried {}, got Not Found",
+            get_request_origin(&req),
+            short_code
+        );
         Ok(build_404_json())
     }
 }
-
 
 #[actix_web::post("/")]
 async fn add_url(_req: HttpRequest, data: JSON, db: DB) -> Result<HttpResponse, Error> {
     match Url::parse(&data.url) {
         Ok(parsed_url) => {
             if !parsed_url.has_authority() {
-                debug!("{} posted \"{}\", got Invalid, no authority.", get_request_origin(&_req), &data.url);
-                return Ok(build_400_json("Invalid URL, cannot be path only or data URL"));
+                debug!(
+                    "{} posted \"{}\", got Invalid, no authority.",
+                    get_request_origin(&_req),
+                    &data.url
+                );
+                return Ok(build_400_json(
+                    "Invalid URL, cannot be path only or data URL",
+                ));
             }
 
-            let query_result = db::query(
-                &db,
-                db::Queries::StoreNewURL(data.into_inner())
-            ).await;
+            let query_result = db::query(&db, db::Queries::StoreNewURL(data.into_inner())).await;
 
             match query_result {
                 Ok(DBValue::String(code)) => Ok(HttpResponse::Created()
@@ -119,15 +136,22 @@ async fn add_url(_req: HttpRequest, data: JSON, db: DB) -> Result<HttpResponse, 
                     .body(format!("{{\"status\": \"ok\", \"message\": \"{}\"}}", code))),
                 Err(err) => Ok(build_400_json(&format!("Invalid API key: {:?}", err))),
                 _ => {
-                    debug!("Got unexpected type back from StoreNewURL query: {:#?}", query_result);
+                    debug!(
+                        "Got unexpected type back from StoreNewURL query: {:#?}",
+                        query_result
+                    );
                     Ok(build_500_json())
                 }
             }
-        },
+        }
         Err(_) => {
-            debug!("{} posted \"{}\", got Invalid, Parser Error.", get_request_origin(&_req), &data.url);
+            debug!(
+                "{} posted \"{}\", got Invalid, Parser Error.",
+                get_request_origin(&_req),
+                &data.url
+            );
             Ok(build_400_json("Invalid URL"))
-        },
+        }
     }
 }
 
@@ -137,12 +161,12 @@ pub async fn start(db_pool: db::Pool) -> std::io::Result<()> {
 
     actix_web::HttpServer::new(move || {
         actix_web::App::new()
-        .wrap(Logger::default())
-        .data(db_pool.clone())
-        .service(static_file) // GET /static/file.xyz
-        .service(index)       // GET /
-        .service(redirect)    // GET /123
-        .service(add_url)     // POST /
+            .wrap(Logger::default())
+            .data(db_pool.clone())
+            .service(static_file) // GET /static/file.xyz
+            .service(index) // GET /
+            .service(redirect) // GET /123
+            .service(add_url) // POST /
     })
     .bind(("127.0.0.1", 8080))?
     .run()
