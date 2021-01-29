@@ -16,8 +16,9 @@ const CONTENT_TYPE_JSON: &str = "application/json; charset=utf-8";
 /// A duration to add to current time for a far expires header.
 const FAR: Duration = Duration::from_secs(180 * 24 * 60 * 60);
 
+// TODO: make db::store_url aware of short codes that might lead to URLs
 /// Common, unsoliticed queries by browsers that should be ignored
-const IGNORED_SHORT_CODES: &[&str] = &["favicon.ico"]; // TODO: make db::store_url aware of this
+const IGNORED_SHORT_CODES: &[&str] = &["favicon.ico"];
 
 type DB = web::Data<db::Pool>;
 type JSON = web::Json<db::UrlPostData>;

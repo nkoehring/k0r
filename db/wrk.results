@@ -1,0 +1,23 @@
+Access to index page (30s, 8 threads, 400 connections)
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     2.62ms    3.56ms  32.16ms   87.77%
+    Req/Sec    32.99k     8.64k   78.39k    78.32%
+  7888550 requests in 30.10s, 39.39GB read
+Requests/sec: 262109.39
+Transfer/sec:      1.31GB
+
+Single URL access (30s, 8 threads, 400 connections)
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     2.39ms    1.41ms  17.63ms   75.06%
+    Req/Sec    21.57k     1.38k   28.72k    69.12%
+  5156528 requests in 30.06s, 2.18GB read
+Requests/sec: 171517.33
+Transfer/sec:     74.10MB
+
+Random URL access (30s, 8 threads, 400 connections)
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    77.60ms   42.64ms 258.88ms   58.04%
+    Req/Sec    14.33k     1.01k   41.27k    81.42%
+  3423323 requests in 30.09s, 1.50GB read
+Requests/sec: 113780.70
+Transfer/sec:     50.93MB
