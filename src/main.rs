@@ -66,9 +66,10 @@ async fn init_db_pool(path_str: String) -> db::Pool {
 
     match db::query(&db_pool, db::Queries::CountUsers).await {
         Ok(DBValue::Number(0)) => {
-            debug!("Adding super user...");
-            if let Some(err) = (db::query(&db_pool, db::Queries::CreateUser(0, true)).await).err() {
-                panic!("Failed to create super user! {}", err);
+            match db::query(&db_pool, db::Queries::CreateUser(0, true)).await {
+                Ok(DBValue::String(api_key)) => println!("Added first user with api key {}", api_key),
+                Ok(v) => debug!("Got unexpected value after user creation: {:#?}", v),
+                Err(err) => panic!("Failed to create super user! {}", err),
             }
         }
         Ok(DBValue::Number(_)) => { /* nothing to do */ }
