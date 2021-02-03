@@ -10,6 +10,7 @@ use text_io::read;
 mod actix_ructe;
 mod db;
 mod server;
+mod response_types;
 mod short_code;
 
 use db::DBValue;

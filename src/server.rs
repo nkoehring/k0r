@@ -5,10 +5,11 @@ use actix_web::{
     self,
     http::header::{ContentType, Expires, LOCATION},
     middleware::Logger,
-    web, Error, HttpRequest, HttpResponse,
+    web, HttpRequest, HttpResponse, Responder,
 };
 use std::time::{Duration, SystemTime};
 use url::Url;
+use super::response_types::Error;
 
 const CONTENT_TYPE_HTML: &str = "text/html; charset=utf-8";
 const CONTENT_TYPE_JSON: &str = "application/json; charset=utf-8";
@@ -30,25 +31,6 @@ fn get_request_origin(req: &HttpRequest) -> String {
         .to_string()
 }
 
-fn build_400_json(msg: &str) -> HttpResponse {
-    let body = format!("{{\"status\": \"error\", \"message\": \"{}\"}}", msg);
-
-    HttpResponse::BadRequest()
-        .content_type(CONTENT_TYPE_JSON)
-        .body(body)
-}
-
-fn build_404_json() -> HttpResponse {
-    HttpResponse::BadRequest()
-        .content_type(CONTENT_TYPE_JSON)
-        .body("{{\"status\": \"error\", \"message\": \"Not Found\"}}")
-}
-
-fn build_500_json() -> HttpResponse {
-    HttpResponse::InternalServerError()
-        .content_type(CONTENT_TYPE_JSON)
-        .body("{{\"status\": \"error\", \"message\": \"Internal Server Error\"}}")
-}
 
 /// Index page handler
 #[actix_web::get("/")]
@@ -90,7 +72,7 @@ async fn redirect(req: HttpRequest, db: DB) -> Result<HttpResponse, Error> {
             get_request_origin(&req),
             short_code
         );
-        Ok(build_404_json())
+        Err(Error::not_found())
     } else if let Ok(DBValue::String(url)) =
         db::query(&db, db::Queries::GetURL(short_code.to_owned())).await
     {
@@ -110,12 +92,12 @@ async fn redirect(req: HttpRequest, db: DB) -> Result<HttpResponse, Error> {
             get_request_origin(&req),
             short_code
         );
-        Ok(build_404_json())
+        Err(Error::not_found())
     }
 }
 
 #[actix_web::post("/")]
-async fn add_url(_req: HttpRequest, data: JSON, db: DB) -> Result<HttpResponse, Error> {
+async fn add_url(_req: HttpRequest, data: JSON, db: DB) -> Result<impl Responder, Error> {
     match Url::parse(&data.url) {
         Ok(parsed_url) => {
             if !parsed_url.has_authority() {
@@ -124,9 +106,7 @@ async fn add_url(_req: HttpRequest, data: JSON, db: DB) -> Result<HttpResponse, 
                     get_request_origin(&_req),
                     &data.url
                 );
-                return Ok(build_400_json(
-                    "Invalid URL, cannot be path only or data URL",
-                ));
+                return Err(Error::new("Invalid URL, cannot be path only or data URL"));
             }
 
             let query_result = db::query(&db, db::Queries::StoreNewURL(data.into_inner())).await;
@@ -135,13 +115,13 @@ async fn add_url(_req: HttpRequest, data: JSON, db: DB) -> Result<HttpResponse, 
                 Ok(DBValue::String(code)) => Ok(HttpResponse::Created()
                     .content_type(CONTENT_TYPE_JSON)
                     .body(format!("{{\"status\": \"ok\", \"message\": \"{}\"}}", code))),
-                Err(err) => Ok(build_400_json(&format!("Invalid API key: {:?}", err))),
+                Err(_) => Err(Error::new("Invalid API key")),
                 _ => {
                     debug!(
                         "Got unexpected type back from StoreNewURL query: {:#?}",
                         query_result
                     );
-                    Ok(build_500_json())
+                    Err(Error::internal())
                 }
             }
         }
@@ -151,7 +131,7 @@ async fn add_url(_req: HttpRequest, data: JSON, db: DB) -> Result<HttpResponse, 
                 get_request_origin(&_req),
                 &data.url
             );
-            Ok(build_400_json("Invalid URL"))
+            Err(Error::new("Invalid URL"))
         }
     }
 }
