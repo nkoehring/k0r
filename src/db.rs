@@ -7,8 +7,11 @@ use rusqlite::NO_PARAMS;
 
 use super::short_code::{random_uuid, ShortCode};
 
+/// generalized Result type using failure to wrap different error types
+/// and DBValue to wrap the possible result types
 type Result<T = DBValue, E = Error> = std::result::Result<T, E>;
 
+/// Error type to wrap database or sqlite related errors
 #[derive(Debug, Fail)]
 pub enum DBError {
     #[fail(display = "The loaded database has not been initialized.")]
@@ -18,6 +21,8 @@ pub enum DBError {
     SqliteError { msg: String, src: rusqlite::Error },
 }
 
+/// Result type to wrap database return values,
+/// can be String, Number(i64) or None
 #[derive(Debug)]
 pub enum DBValue {
     String(String),
@@ -29,6 +34,7 @@ pub enum DBValue {
 pub type Pool = r2d2::Pool<SqliteConnectionManager>;
 pub type Connection = r2d2::PooledConnection<SqliteConnectionManager>;
 
+/// Describes the expected structure for posting new URLs
 #[derive(serde::Deserialize)]
 pub struct UrlPostData {
     pub url: String,
@@ -37,6 +43,7 @@ pub struct UrlPostData {
     pub key: String,
 }
 
+/// Possible database queries, used with db::query
 pub enum Queries {
     NeedsInit,
     CountUsers,
@@ -46,6 +53,10 @@ pub enum Queries {
     StoreNewURL(UrlPostData), // api_key, url, title?, description?
 }
 
+/// Queries the database schema and creates a descriptive string like
+///   table1|field1
+///   table1|field2
+///   table2|field1
 fn get_database_schema(conn: &Connection) -> Result<String> {
     let mut stmt = conn.prepare(
         "
@@ -74,6 +85,7 @@ fn get_database_schema(conn: &Connection) -> Result<String> {
     Ok(schema)
 }
 
+/// compares a hard coded expected database schema with the actual one
 fn check_database_schema(conn: Connection) -> Result {
     // TODO: is that really a good way to check the schema?
     let expected_schema = String::from(
@@ -130,6 +142,7 @@ fn init_database(conn: Connection) -> Result {
     })
 }
 
+/// counts entries in Users table and returns that count as DBValue::Number
 fn count_users(conn: Connection) -> Result {
     conn.query_row("SELECT COUNT(rowid) FROM USERS", NO_PARAMS, |row| {
         row.get(0)
@@ -141,7 +154,8 @@ fn count_users(conn: Connection) -> Result {
     })
 }
 
-/// Creates a user entry with random API key and returns the API key.
+/// Creates a new user entry with random API key
+/// and returns the API key as DBValue::String
 fn create_user(conn: Connection, rate_limit: i64, is_admin: bool) -> Result {
     let new_key = random_uuid();
     let is_admin = if is_admin { "1" } else { "0" };
@@ -157,6 +171,7 @@ fn create_user(conn: Connection, rate_limit: i64, is_admin: bool) -> Result {
 }
 
 /// Looks up an URL by translating the short_code to its ID
+/// short_code is simply the base36 version of the table id
 fn get_url(conn: Connection, short_code: &str) -> Result {
     let row_id = ShortCode::from_code(short_code)?.n;
 
@@ -165,7 +180,7 @@ fn get_url(conn: Connection, short_code: &str) -> Result {
         &[row_id as i64],
         |row| row.get(0),
     )
-    .map(|url| DBValue::String(url))
+    .map(DBValue::String)
     .map_err(|src| {
         let msg = "Could not retrieve URL".to_owned();
         Error::from(DBError::SqliteError { msg, src })
@@ -197,7 +212,7 @@ fn store_url(conn: Connection, data: &UrlPostData) -> Result {
     Ok(DBValue::String(short_code))
 }
 
-/// translates Queries to function calls and returns the result
+/// translates Queries to function calls and returns the result as Future
 pub fn query(
     pool: &Pool,
     query: Queries,

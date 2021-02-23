@@ -2,6 +2,9 @@ use radix_fmt::radix_36;
 use std::num::ParseIntError;
 use uuid::Uuid;
 
+/// Describes a short code and its numerical value.
+/// Can be created either directly from a number: `ShortCode::new(1234)`
+/// or from a &str: `ShortCode::from_code("1z5")`
 pub struct ShortCode {
     pub code: String,
     pub n: usize,

@@ -33,6 +33,8 @@ fn get_request_origin(req: &HttpRequest) -> String {
 
 
 /// Index page handler
+/// `GET /`
+/// returns the static template from templates/index.rs.html
 #[actix_web::get("/")]
 async fn index() -> HttpResponse {
     HttpResponse::Ok()
@@ -41,7 +43,8 @@ async fn index() -> HttpResponse {
 }
 
 /// Handler for static files.
-/// Create a response from the file data with a correct content type
+/// `GET /static/favicon.ico`
+/// Creates a response from the file data with a correct content type
 /// and a far expires header (or a 404 if the file does not exist).
 #[actix_web::get("/static/{filename}")]
 fn static_file(path: web::Path<String>) -> HttpResponse {
@@ -60,6 +63,7 @@ fn static_file(path: web::Path<String>) -> HttpResponse {
 }
 
 /// Shortcode handler
+/// `GET /1z5`
 /// Asks the database for the URL matching short_code and responds
 /// with a redirect or, if not found, a JSON error
 #[actix_web::get("/{short_code}")]
@@ -96,6 +100,13 @@ async fn redirect(req: HttpRequest, db: DB) -> Result<HttpResponse, Error> {
     }
 }
 
+/// URL Post Handler
+/// POST / -H 'Content-Type: application/json' -d $payload
+/// where $payload is a JSON object with the keys:
+///   url: the URL to shorten,
+///   title: an optional title for the URL, defaults to empty string,
+///   description: an optional description for the URL, defaults to empty string,
+///   key: the API key
 #[actix_web::post("/")]
 async fn add_url(_req: HttpRequest, data: JSON, db: DB) -> Result<impl Responder, Error> {
     match Url::parse(&data.url) {
@@ -136,6 +147,7 @@ async fn add_url(_req: HttpRequest, data: JSON, db: DB) -> Result<impl Responder
     }
 }
 
+/// the web service initiator
 #[actix_web::main]
 pub async fn start(db_pool: db::Pool) -> std::io::Result<()> {
     println!("Server is listening on 127.0.0.1:8080");

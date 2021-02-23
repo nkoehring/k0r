@@ -5,6 +5,8 @@ use actix_web::{web::HttpResponse, ResponseError};
 use serde::Serialize;
 use serde_json::{json, to_string_pretty};
 
+/// Error http response with the status code and a generic message.
+/// Implements everything necessary to be consumed by actix-web.
 #[derive(Debug, Serialize)]
 pub struct Error {
     pub status: u16,
